@@ -1,0 +1,11 @@
+services:
+  app:
+    networks:
+      default:
+      proxy:
+        aliases:
+          - lightimg-app
+networks:
+  proxy:
+    external: true
+    name: ${NPM_NETWORK:?Set NPM_NETWORK to your existing NPM network}

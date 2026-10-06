@@ -1,0 +1,4 @@
+LightImg Rounded is derived from ChillRoundF v3.200 by ChillType.
+Source: https://github.com/Warren2060/ChillRound/releases/tag/v3.200
+Licensed under SIL Open Font License 1.1; see OFL.txt.
+Changes: font family renamed to LightImg Rounded and converted to WOFF2; glyphs retained without subsetting.

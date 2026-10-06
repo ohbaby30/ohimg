@@ -1,0 +1,35 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      APP_URL: ${APP_URL:?Set APP_URL in .env}
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env}
+      PORT: 8080
+      DB_PATH: /data/db/lightimg.sqlite
+      IMAGE_DIR: /data/images
+      TRUST_PROXY: ${TRUST_PROXY:-}
+    ports:
+      - "${BIND_IP:-127.0.0.1}:${HOST_PORT:-18080}:8080"
+    volumes:
+      - database:/data/db
+      - images:/data/images
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  database:
+  images:
