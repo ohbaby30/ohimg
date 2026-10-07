@@ -1,4 +1,4 @@
-# ohimg
+# Ohimg
 
 自托管的邀请制图床：图片和视频存储在服务器本地，外链公开，图库须登录。支持批量、拖拽、粘贴上传图片，以及管理员通过 Telegram Bot 保存图片和视频、获取外链。当前视频仅支持 MP4。
 
@@ -6,13 +6,15 @@
 
 Vue 3 · TypeScript · Fastify · SQLite · Node.js 24 · Docker Compose。
 
+应用名称为 Ohimg；npm 包名与 Docker Compose 项目名按工具要求使用小写 `ohimg`，已有部署的 Compose 项目名称保持原值。
+
 ## 部署
 
 服务器需安装 Git、Docker 和 Docker Compose，并准备域名及 HTTPS 反向代理。先下载源码：
 
 ```sh
-git clone https://github.com/ohbaby30/ohimg.git
-cd ohimg
+git clone https://github.com/ohbaby30/ohimg.git Ohimg
+cd Ohimg
 ```
 
 创建配置并生成密钥：
@@ -33,7 +35,7 @@ docker compose exec app node dist/server/cli.js init-admin
 按提示设置管理员邮箱和密码。反代配置：
 
 - 同机 Nginx：转发到 `http://127.0.0.1:18080`。
-- 同机容器 NPM：`.env` 设置 `COMPOSE_FILE=compose.yml:compose.npm.yml`、`NPM_NETWORK=实际网络名`，重新启动；转发到 `http://lightimg-app:8080`。
+- 同机容器 NPM：`.env` 设置 `COMPOSE_FILE=compose.yml:compose.npm.yml`、`NPM_NETWORK=实际网络名`，重新启动；转发到 `http://Ohimg-app:8080`。
 - 异机 NPM：`BIND_IP` 填图床的内网/VPN IP；走公网则填 `0.0.0.0`，并用云防火墙限制 18080 仅允许 NPM 出口 IP。转发到 `http://图床服务器IP:18080`。
 
 域名和 HTTPS 配置：
@@ -78,15 +80,15 @@ environment.env
 在你选择的目录执行：
 
 ```sh
-git clone https://github.com/ohbaby30/ohimg.git
-cd ohimg
+git clone https://github.com/ohbaby30/ohimg.git Ohimg
+cd Ohimg
 ```
 
-将本地保存的三个备份文件上传到新服务器的 `ohimg/` 目录，与 `compose.yml` 放在同一层。
+将本地保存的三个备份文件上传到新服务器的 `Ohimg/` 目录，与 `compose.yml` 放在同一层。
 
 ### 3．恢复并启动
 
-在新服务器的 `ohimg/` 目录执行：
+在新服务器的 `Ohimg/` 目录执行：
 
 ```sh
 cp environment.env .env

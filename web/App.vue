@@ -8,7 +8,7 @@ type Upload={id:string;file:File;preview:string;status:'waiting'|'uploading'|'do
 const router=useRouter(),route=useRoute(),me=ref<User|null>(null),ready=ref(false),busy=ref(false),loading=ref(false),notice=ref(''),noticeError=ref(false),invitedEmail=ref(''),inviteError=ref('');
 let noticeTimer:ReturnType<typeof setTimeout>;
 function toast(text:string,error=false){notice.value=text;noticeError.value=error;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>notice.value='',6500);}
-async function api<T=any>(path:string,options:RequestInit={}):Promise<T>{const headers=new Headers(options.headers);headers.set('X-Requested-With','lightimg');if(options.body)headers.set('Content-Type','application/json');const res=await fetch('/api'+path,{...options,headers,credentials:'same-origin'});const data=await res.json();if(!res.ok){if(res.status===401&&path!='/login')me.value=null;throw new Error(data.error??'请求失败');}return data;}
+async function api<T=any>(path:string,options:RequestInit={}):Promise<T>{const headers=new Headers(options.headers);headers.set('X-Requested-With','Ohimg');if(options.body)headers.set('Content-Type','application/json');const res=await fetch('/api'+path,{...options,headers,credentials:'same-origin'});const data=await res.json();if(!res.ok){if(res.status===401&&path!='/login')me.value=null;throw new Error(data.error??'请求失败');}return data;}
 const send=(path:string,data:any,method='POST')=>api(path,{method,body:JSON.stringify(data)});
 const path=computed(()=>route.path),admin=computed(()=>me.value?.role==='admin'),publicForm=computed(()=>['/accept','/reset','/forgot'].includes(path.value));
 const labels:Record<string,string>={'/upload':'上传图片','/images':'我的图片','/account':'账号设置','/admin/images':'全站图片','/admin/users':'用户管理','/admin/invites':'邮箱邀请','/admin/telegram':'Telegram Bot','/admin/mail':'邮件设置'};
@@ -56,7 +56,7 @@ const complete=computed(()=>queue.value.filter(i=>i.status==='done').length);
 function pick(files:FileList|File[]|null){if(!files)return;const list=Array.from(files);if(list.length>20){toast('每次最多选择 20 张图片',true);return;}if(queue.value.length+list.length>60){toast('请先清空已完成的上传记录',true);return;}for(const f of list){if(f.size>maxBytes.value){toast(`${f.name} 超过 ${formatBytes(maxBytes.value)} 上限`,true);continue;}if(!['image/jpeg','image/png','image/gif','image/webp'].includes(f.type)){toast(`${f.name} 不是支持的图片类型`,true);continue;}queue.value.push({id:crypto.randomUUID(),file:f,preview:URL.createObjectURL(f),status:'waiting',progress:0,error:''});}void runUploads();}
 function onPick(event:Event){const el=event.target as HTMLInputElement;pick(el.files);el.value='';}
 function onDrop(event:DragEvent){dragging.value=false;pick(event.dataTransfer?.files??null);}
-async function uploadOne(item:Upload){item.status='uploading';item.progress=0;item.error='';await new Promise<void>(done=>{const xhr=new XMLHttpRequest();xhr.open('POST','/api/images');xhr.setRequestHeader('X-Requested-With','lightimg');xhr.upload.onprogress=e=>{if(e.lengthComputable)item.progress=Math.round(e.loaded/e.total*100);};xhr.timeout=120000;const fail=(message:string)=>{item.status='failed';item.error=message;done();};xhr.onerror=()=>fail('网络连接失败，请重试');xhr.ontimeout=()=>fail('上传超时，请重试');xhr.onload=()=>{try{const r=JSON.parse(xhr.responseText);if(xhr.status>=200&&xhr.status<300){item.status='done';item.progress=100;item.links=r.links;done();}else{if(xhr.status===401)me.value=null;fail(r.error??'上传失败');}}catch{fail('服务器响应异常');}};const form=new FormData();form.append('file',item.file);xhr.send(form);});}
+async function uploadOne(item:Upload){item.status='uploading';item.progress=0;item.error='';await new Promise<void>(done=>{const xhr=new XMLHttpRequest();xhr.open('POST','/api/images');xhr.setRequestHeader('X-Requested-With','Ohimg');xhr.upload.onprogress=e=>{if(e.lengthComputable)item.progress=Math.round(e.loaded/e.total*100);};xhr.timeout=120000;const fail=(message:string)=>{item.status='failed';item.error=message;done();};xhr.onerror=()=>fail('网络连接失败，请重试');xhr.ontimeout=()=>fail('上传超时，请重试');xhr.onload=()=>{try{const r=JSON.parse(xhr.responseText);if(xhr.status>=200&&xhr.status<300){item.status='done';item.progress=100;item.links=r.links;done();}else{if(xhr.status===401)me.value=null;fail(r.error??'上传失败');}}catch{fail('服务器响应异常');}};const form=new FormData();form.append('file',item.file);xhr.send(form);});}
 async function runUploads(){if(running.value)return;running.value=true;try{while(true){const batch=queue.value.filter(i=>i.status==='waiting').slice(0,3);if(!batch.length)break;await Promise.all(batch.map(uploadOne));}}finally{running.value=false;}}
 function retry(item:Upload){item.status='waiting';void runUploads();}
 function clearDone(){queue.value=queue.value.filter(item=>{if(item.status==='done'){URL.revokeObjectURL(item.preview);return false;}return true;});}
@@ -74,20 +74,20 @@ onUnmounted(()=>{document.removeEventListener('paste',paste);document.removeEven
 
 <template>
  <div v-if="notice" :class="['toast',{'toast-error':noticeError}]" role="status">{{ notice }}</div>
- <div v-if="!ready" class="boot">正在打开ohimg…</div>
+ <div v-if="!ready" class="boot">正在打开Ohimg…</div>
  <main v-else-if="!me || publicForm" class="auth-page">
-  <a class="brand auth-brand" href="/"> <span class="logo">▧</span><span>ohimg<small>SELF-HOSTED MEDIA</small></span></a>
+  <a class="brand auth-brand" href="/"> <span class="logo">▧</span><span>Ohimg<small>SELF-HOSTED MEDIA</small></span></a>
   <div class="auth-intro"><span class="eyebrow">A LITTLE SPACE FOR YOUR IMAGES</span><h1>图片有处安放，<br><em>分享自然简单。</em></h1><p>把每一张值得分享的图片，<br>变成随时可用的链接。</p><div class="art"><span class="art-shape one"></span><span class="art-shape two"></span><div class="art-frame">◒<small>YOUR NEXT GREAT IMAGE</small></div><span class="art-dot"></span></div><span class="auth-foot">仅限邀请加入 · 图片外链公开</span></div>
   <section class="auth-card">
    <span class="badge">{{ path==='/accept'?'专属邀请':'你的图片工作台' }}</span>
-   <h2>{{ path==='/accept'?'欢迎加入ohimg':path==='/reset'?'设置新密码':path==='/forgot'?'找回密码':'欢迎回来' }}</h2>
+   <h2>{{ path==='/accept'?'欢迎加入Ohimg':path==='/reset'?'设置新密码':path==='/forgot'?'找回密码':'欢迎回来' }}</h2>
    <p class="muted">{{ path==='/accept'?'这份邀请属于你，设置密码即可开始。':path==='/reset'?'重置后，所有旧登录会话将失效。':path==='/forgot'?'请输入账号邮箱，我们会尝试发送重置链接。':'登录后，上传和管理你的图片。' }}</p>
    <p v-if="inviteError" class="error-box">{{ inviteError }}。请联系管理员重新邀请。</p>
    <form v-else @submit.prevent="formAction" class="form">
     <label v-if="path!=='/reset'">邮箱<input v-if="path==='/accept'" :value="invitedEmail" readonly type="email"><input v-else v-model="credentials.email" type="email" required autocomplete="username" placeholder="you@example.com"></label>
     <label v-if="path!=='/forgot'">{{ path==='/accept'||path==='/reset'?'设置密码':'密码' }}<input v-model="credentials.password" type="password" required :minlength="path==='/accept'||path==='/reset'?12:1" maxlength="128" :autocomplete="path==='/accept'||path==='/reset'?'new-password':'current-password'" placeholder="输入你的密码"></label>
     <label v-if="path==='/accept'||path==='/reset'">确认密码<input v-model="credentials.confirm" type="password" required minlength="12" maxlength="128" autocomplete="new-password" placeholder="再输入一次密码"></label>
-    <button class="primary wide" :disabled="busy||path==='/accept'&&!invitedEmail">{{ busy?'正在处理…':path==='/accept'?'接受邀请并创建账号':path==='/reset'?'重置密码':path==='/forgot'?'发送重置邮件':'登录ohimg →' }}</button>
+    <button class="primary wide" :disabled="busy||path==='/accept'&&!invitedEmail">{{ busy?'正在处理…':path==='/accept'?'接受邀请并创建账号':path==='/reset'?'重置密码':path==='/forgot'?'发送重置邮件':'登录Ohimg →' }}</button>
    </form>
    <div class="auth-links"><RouterLink v-if="path==='/forgot'||path==='/accept'||path==='/reset'" to="/login">返回登录</RouterLink><RouterLink v-else to="/forgot">忘记密码？</RouterLink></div>
    <p class="auth-note">这里暂不开放注册。需要账号？请联系管理员获取邮箱邀请。</p>
@@ -95,14 +95,14 @@ onUnmounted(()=>{document.removeEventListener('paste',paste);document.removeEven
  </main>
  <div v-else class="shell">
   <aside class="sidebar">
-   <RouterLink to="/upload" class="brand"><span class="logo">▧</span><span>ohimg<small>SELF-HOSTED MEDIA</small></span></RouterLink>
+   <RouterLink to="/upload" class="brand"><span class="logo">▧</span><span>Ohimg<small>SELF-HOSTED MEDIA</small></span></RouterLink>
    <div class="nav-label">图片工作台</div><nav><RouterLink to="/upload"><span>↑</span>上传图片</RouterLink><RouterLink to="/images"><span>▧</span>我的图片</RouterLink><RouterLink to="/account"><span>◎</span>账号设置</RouterLink></nav>
    <template v-if="admin"><div class="nav-label">管理员</div><nav><RouterLink to="/admin/images"><span>▦</span>全站图片</RouterLink><RouterLink to="/admin/users"><span>♙</span>用户管理</RouterLink><RouterLink to="/admin/invites"><span>✉</span>邮箱邀请</RouterLink><RouterLink to="/admin/telegram"><span>↗</span>Telegram Bot</RouterLink><RouterLink to="/admin/mail"><span>⚙</span>邮件设置</RouterLink></nav></template>
    <div class="sidebar-note"><span class="status-dot"></span>本地存储 · 仅限邀请<p>图片外链公开，图库仅自己可见。管理员可管理全站图片。</p></div>
   </aside>
   <div class="workspace">
    <header class="topbar"><span>图片工作台 <span class="crumb">/ {{ title }}</span></span><div class="user-menu"><span class="avatar">{{ me.email[0].toUpperCase() }}</span><span class="user-email">{{ me.email }}</span><span v-if="admin" class="role-tag">管理员</span><button class="text-button" @click="logout">退出</button></div></header>
-   <main class="content"><div class="page-heading"><div><span class="eyebrow">{{ path.startsWith('/admin')?'ADMINISTRATION':'YOUR IMAGE SPACE' }}</span><h1>{{ title }}<span class="title-dot" aria-hidden="true">.</span></h1><p class="muted">{{ descriptions[path] }}</p></div><span class="badge soft">{{ path==='/upload'?'PUBLIC LINKS · PRIVATE LIBRARY':'ohimg / 简单分享' }}</span></div>
+   <main class="content"><div class="page-heading"><div><span class="eyebrow">{{ path.startsWith('/admin')?'ADMINISTRATION':'YOUR IMAGE SPACE' }}</span><h1>{{ title }}<span class="title-dot" aria-hidden="true">.</span></h1><p class="muted">{{ descriptions[path] }}</p></div><span class="badge soft">{{ path==='/upload'?'PUBLIC LINKS · PRIVATE LIBRARY':'Ohimg / 简单分享' }}</span></div>
    <p v-if="pageError" class="error-box">{{ pageError }} <button @click="refresh">重试</button></p>
    <template v-if="path==='/upload' || !labels[path]">
     <div class="stat-strip"><div><span>支持的格式</span><strong>JPG · PNG · GIF · WebP</strong></div><div><span>单张图片上限</span><strong>{{ formatBytes(maxBytes) }}</strong></div><div><span>本次上传完成</span><strong>{{ complete }} <small>/ {{ queue.length }} 张</small></strong></div></div>
@@ -134,7 +134,7 @@ onUnmounted(()=>{document.removeEventListener('paste',paste);document.removeEven
      <div class="form-buttons"><button class="primary" :disabled="busy">保存 Telegram 配置</button><button type="button" :disabled="busy" @click="refresh">刷新状态</button></div>
     </form>
    </section>
-   <footer>ohimg <span>少一点复杂，多一点分享。</span></footer></main>
+   <footer>Ohimg <span>少一点复杂，多一点分享。</span></footer></main>
   </div>
  </div>
  <div v-if="deletion||revoke||toggleUser" class="modal-backdrop" @click.self="!busy&&(deletion=null,revoke=null,toggleUser=null)"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><h2 id="dialog-title">{{ deletion?'删除这张图片？':revoke?'撤销这份邀请？':toggleUser?.active?'停用这个账号？':'启用这个账号？' }}</h2><p>{{ deletion?`「${deletion.name}」删除后外链将立即失效，无法在界面中恢复。`:revoke?`发给 ${revoke.email} 的链接将立即失效。`:toggleUser?.active?'该用户会退出所有登录会话，已有图片外链保持可用。':'该用户将可以重新登录。' }}</p><div class="form-buttons"><button :disabled="busy" @click="deletion=null;revoke=null;toggleUser=null">取消</button><button class="primary" :disabled="busy" @click="deletion?deletePhoto():revoke?revokeInvite():toggle()">{{ busy?'正在处理…':'确认' }}</button></div></section></div>

@@ -6,7 +6,7 @@ services:
       APP_URL: ${APP_URL:?Set APP_URL in .env}
       APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env}
       PORT: 8080
-      DB_PATH: /data/db/lightimg.sqlite
+      DB_PATH: /data/db/Ohimg.sqlite
       IMAGE_DIR: /data/images
       TRUST_PROXY: ${TRUST_PROXY:-}
     ports:

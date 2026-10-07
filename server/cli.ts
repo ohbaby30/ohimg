@@ -1,11 +1,11 @@
 import Database from 'better-sqlite3';
-import { openStore, email, hashPassword } from './store.js';
+import { openStore, email, hashPassword, compatibleDatabasePath } from './store.js';
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { resolve } from 'node:path';
 import { stdin, stdout } from 'node:process';
 const [command,...args]=process.argv.slice(2);
-const path=process.env.DB_PATH??'/data/db/lightimg.sqlite';
+const path=compatibleDatabasePath(process.env.DB_PATH??'/data/db/Ohimg.sqlite');
 const db=command==='backup'?new Database(path,{readonly:true,fileMustExist:true}):openStore(path);
 async function password(){if(!stdin.isTTY){let text='';for await(const chunk of stdin)text+=chunk;return text.replace(/\r?\n$/,'');}stdout.write('输入密码（12–128字符，不回显）: ');stdin.setRawMode(true);stdin.resume();return new Promise<string>((done,reject)=>{let value='';const finish=()=>{stdin.off('data',listener);stdin.setRawMode(false);stdin.pause();stdout.write('\n');};const listener=(chunk:Buffer)=>{for(const c of chunk.toString()){if(c==='\u0003'){finish();reject(new Error('已取消'));return;}if(c==='\r'||c==='\n'){finish();done(value);return;}if(c==='\u007f'||c==='\b')value=value.slice(0,-1);else if(c>=' ')value+=c;}};stdin.on('data',listener);});}
 try {

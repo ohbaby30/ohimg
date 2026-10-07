@@ -4,7 +4,7 @@ services:
       default:
       proxy:
         aliases:
-          - lightimg-app
+          - Ohimg-app
 networks:
   proxy:
     external: true
