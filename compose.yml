@@ -1,25 +1,6 @@
 services:
-  storage-init:
-    build: .
-    user: "0:0"
-    network_mode: none
-    restart: "no"
-    command: ["sh", "-c", "mkdir -p /data/db /data/images && chown -R 1000:1000 /data/db /data/images"]
-    volumes:
-      - ./data/db:/data/db
-      - ./data/images:/data/images
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
   ohimg:
     build: .
-    depends_on:
-      storage-init:
-        condition: service_completed_successfully
     restart: unless-stopped
     environment:
       APP_URL: ${APP_URL:?Set APP_URL in .env}
@@ -38,6 +19,12 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
+      - KILL
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 30s

@@ -27,7 +27,7 @@ docker compose exec ohimg node dist/server/cli.js init-admin
 
 按提示设置管理员邮箱和密码。已有部署或从备份恢复后不要再次初始化。
 
-数据库保存在安装目录的 `data/db/`，图片和视频保存在 `data/images/`。启动时 Compose 自动建立目录并将其中的数据权限交给应用用户（UID/GID 1000）；`storage-init` 完成后显示 `Exited (0)` 是正常状态，应用仍以普通用户运行。安装目录可自行选择，配置使用相对路径。
+数据库保存在安装目录的 `data/db/`，图片和视频保存在 `data/images/`。启动时镜像自动准备数据目录，只运行一个图床容器。启动完成后，`docker compose ps` 显示 `Up` 和 `healthy`。安装目录可自行选择，配置使用相对路径。
 
 ### 反向代理
 
@@ -45,7 +45,7 @@ docker compose exec ohimg node dist/server/cli.js init-admin
 
 ```sh
 # 更新源码后执行
-docker compose up -d --build
+docker compose up -d --build --remove-orphans
 docker compose ps
 ```
 
@@ -82,6 +82,6 @@ Docker 或 Docker Compose 的镜像部署步骤与配置样本，请查看 [Dock
 3. 恢复时，将整个目录上传到新服务器的任意空目录，进入该目录。保留原 `APP_SECRET`，核对域名、端口和反代入口。
 4. 镜像部署执行 `docker compose up -d`；源码部署执行 `docker compose up -d --build`。沿用备份对应的版本，确认恢复正常后再升级。
 
-使用原账号登录，不重新初始化管理员。权限由 Compose 自动准备，无需手动 `chmod 777`。备份含账号数据和密钥，不能公开。只复制源码、只复制 SQLite 主文件或漏掉 `.env` 都不是完整备份；跨服务器切换前保持旧站停止，避免两个 Bot 实例同时接收。
+使用原账号登录，不重新初始化管理员。数据目录权限由镜像自动准备，无需手动 `chmod 777`。备份含账号数据和密钥，不能公开。只复制源码、只复制 SQLite 主文件或漏掉 `.env` 都不是完整备份；跨服务器切换前保持旧站停止，避免两个 Bot 实例同时接收。
 
-Docker 命令部署同样使用安装目录的 `data/`：备份前执行 `docker stop ohimg`，恢复后按 [Docker Hub](https://hub.docker.com/r/ohbaby/ohimg) 的 Docker 部署命令准备权限并启动，跳过管理员初始化。备份目录需保留原镜像版本和启动参数。
+Docker 命令部署同样使用安装目录的 `data/`：备份前执行 `docker stop ohimg`，恢复后按 [Docker Hub](https://hub.docker.com/r/ohbaby/ohimg) 的 Docker 部署命令启动，跳过管理员初始化。备份目录需保留原镜像版本和启动参数。
