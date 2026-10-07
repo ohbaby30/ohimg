@@ -51,3 +51,57 @@ docker compose exec app node dist/server/cli.js init-admin
 - Telegram 文件限制：图片支持 JPEG、PNG、GIF、WebP，视频仅支持 MP4；图片和视频每个文件均最多 20 MB（20,000,000 字节）。该限制来自 [Telegram 官方 Bot API 下载接口](https://core.telegram.org/bots/api#getfile)，当前版本不支持更大视频或其他视频格式。
 
 更新前运行 `sh backup.sh`，更新源码后执行 `docker compose up -d --build`。停止用 `docker compose down`，不要加 `-v`。保留原 `.env`、`APP_SECRET`、Compose 项目名称和数据卷；备份含密钥，勿公开。
+
+## 迁移与恢复
+
+### 1．旧服务器备份
+
+在旧服务器的图床项目目录执行：
+
+```sh
+docker compose stop app
+sh backup.sh backups/migration
+```
+
+旧站保持停止，避免迁移期间继续写入。将项目目录下 `backups/migration/` 中的三个文件下载到本地备用：
+
+```text
+database.sqlite
+images.tar.gz
+environment.env
+```
+
+备份包含配置密钥，请妥善保管，不要提交 GitHub。`backups/migration/` 必须尚不存在，重复备份时换一个新目录名。
+
+### 2．新服务器准备源码和备份
+
+在你选择的目录执行：
+
+```sh
+git clone https://github.com/ohbaby30/ohimg.git
+cd ohimg
+```
+
+将本地保存的三个备份文件上传到新服务器的 `ohimg/` 目录，与 `compose.yml` 放在同一层。
+
+### 3．恢复并启动
+
+在新服务器的 `ohimg/` 目录执行：
+
+```sh
+cp environment.env .env
+chmod 600 .env
+docker compose build
+sh restore.sh .
+docker compose up -d
+```
+
+**先恢复，再启动。**保留备份中的 `APP_SECRET`；恢复成功后使用原邮箱和密码登录，不需要初始化管理员。若恢复失败，先处理错误，不要继续启动。
+
+如果新服务器已启动过这个项目，且确认当前数据可以丢弃，在恢复前先执行：
+
+```sh
+docker compose down -v
+```
+
+该命令会删除当前 Compose 项目的数据库和图片卷，保留上传到项目目录中的三个备份文件。
