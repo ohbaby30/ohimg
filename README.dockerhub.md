@@ -12,7 +12,7 @@ cd ohimg
 openssl rand -hex 32
 ```
 
-准备实际访问地址。使用域名时，先配置该域名的 HTTPS 入口；相关配置请看 [GitHub 部署说明](https://github.com/ohbaby30/ohimg#镜像方式反向代理)。
+准备实际访问地址。使用域名时，先配置该域名的 HTTPS 入口；相关配置请看 [GitHub 部署说明](https://github.com/ohbaby30/ohimg#反向代理)。
 
 创建 `.env` 文件，将生成的密钥填入 `APP_SECRET`，`APP_URL` 替换为浏览器实际使用的完整地址：
 

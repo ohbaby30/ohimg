@@ -33,7 +33,9 @@ docker compose exec app node dist/server/cli.js init-admin
 - 同机容器 NPM：`.env` 设置 `COMPOSE_FILE=compose.yml:compose.npm.yml` 和 `NPM_NETWORK=实际网络名`，再执行启动命令；转发到 `http://Ohimg-app:8080`。
 - 异机 NPM：`BIND_IP` 填图床服务器的内网/VPN IP，转发到 `http://图床服务器IP:18080`。如必须走公网，先将入口限制为 NPM 出口 IP。
 
-`HOST_PORT` 默认 18080。域名 DNS 指向反代服务器，配置有效 HTTPS 证书，`APP_URL` 与实际访问域名一致。Nginx/NPM 设置 `client_max_body_size 25m;`；开启 Cloudflare 橙云时，反代证书有效后使用 Full (strict)。
+以上 `BIND_IP`、`HOST_PORT` 用于仓库的 Compose 配置；Docker Hub 样本直接修改 `ports`，Docker 命令部署修改 `-p`。异机反代可使用 `18080:8080`，并先在云防火墙/安全组中限制 TCP 18080 仅允许 NPM 的实际出口 IP；同机宿主机代理使用 `127.0.0.1:18080:8080`。同机容器 NPM 使用 Hub 样本时，设置 `COMPOSE_FILE=docker-compose.yaml:compose.npm.yml` 并配置上述 `NPM_NETWORK`；共享网络转发到 `Ohimg-app:8080`。
+
+`HOST_PORT` 默认 18080。`APP_URL` 填浏览器最终访问地址，例如 `https://img.example.com`，不改变端口监听或给容器启用 HTTPS。域名 DNS 指向反代服务器，在反代配置有效 HTTPS 证书；NPM 上游协议选择 `http`。Nginx/NPM 设置 `client_max_body_size 25m;`；开启 Cloudflare 橙云时，反代证书有效后使用 Full (strict)。
 
 ### 源码更新与停止
 
@@ -60,7 +62,7 @@ docker compose down
 
 也可以通过 Docker 或 Docker Compose 使用预构建镜像，无需下载源码或在服务器编译。镜像支持 `linux/amd64`、`linux/arm64`。
 
-**Docker 与 Docker Compose 安装步骤参见 [Docker Hub 部署说明](https://hub.docker.com/r/ohbaby/ohimg)。** 镜像部署后的配置、更新、备份与恢复见本文下方。
+Docker 或 Docker Compose 的镜像部署步骤与配置样本，请查看 [Docker Hub 部署说明](https://hub.docker.com/r/ohbaby/ohimg)。
 
 ## 使用
 
@@ -91,49 +93,3 @@ docker compose up -d
 ```
 
 使用原邮箱和密码登录，不初始化管理员。脚本拒绝非空卷；恢复失败时先处理问题，不继续启动。在同一服务器试恢复时，使用独立 Compose 项目名和端口，不改动原部署。
-
-## 镜像部署后的配置与维护
-
-镜像初次安装请看 [Docker Hub](https://hub.docker.com/r/ohbaby/ohimg)。Docker Hub 的 `docker-compose.yaml` 样本可直接用于部署；仓库内 `compose.hub.yml` 是带健康检查、日志轮转及可配置端口的完整配置。采用仓库文件时使用 `.env.hub.example` 并保留 `COMPOSE_FILE=compose.hub.yml`；采用样本时默认读取 `docker-compose.yaml`。已有部署继续保留原项目名、密钥和数据卷，不用示例覆盖原 `.env`。
-
-### 镜像方式反向代理
-
-`APP_URL` 始终填写浏览器最终访问地址，例如 `https://img.example.com`。它控制外链、请求来源校验与登录 Cookie，不改变服务监听地址；填写 HTTPS 地址也不会给容器启用 HTTPS。应用上游协议为 `http`。
-
-Docker Hub 样本使用 `"18080:8080"`，通常发布到服务器所有网卡。异机 NPM 转发到 `http://图床服务器IP:18080`；公网连接前，在云防火墙/安全组中限制 TCP 18080 仅允许 NPM 的实际出口 IP，不能仅凭 UFW 判断 Docker 端口已受限。优先使用内网/VPN，并可将样本端口改为 `"图床服务器内网IP:18080:8080"`。样本中的端口写死，添加 `BIND_IP` 不会改变它；仓库完整配置 `compose.hub.yml` 才读取 `BIND_IP`。
-
-同机宿主机 Nginx 使用样本时，将映射改为 `"127.0.0.1:18080:8080"`，转发到 `http://127.0.0.1:18080`。Docker 命令部署对应调整 `-p` 参数。
-
-同机容器 NPM 使用 Docker Hub 样本时，也将端口映射改为 `"127.0.0.1:18080:8080"`。另放入仓库的 `compose.npm.yml`，填写 `NPM_NETWORK`；使用完整配置时设置 `COMPOSE_FILE=compose.hub.yml:compose.npm.yml`，使用 Docker Hub 样本时设置 `COMPOSE_FILE=docker-compose.yaml:compose.npm.yml`。执行 `docker compose up -d`，NPM 转发到 `http://Ohimg-app:8080`。域名 DNS 指向 NPM 服务器；NPM 的 Scheme 选择 `http`，Forward Port 为上述上游端口，HTTPS 证书在 NPM 配置。证书、上传限制和 Cloudflare 设置同上。
-
-修改配置后执行 `docker compose up -d` 使其生效；仅 `restart` 不会重新应用环境变量或端口映射。从图床服务器请求 `http://127.0.0.1:18080/api/health`（绑定指定 IP 时换成该 IP），再从 NPM 服务器请求 `http://图床服务器IP:18080/api/health`。两处成功后通过正式域名验证登录和上传；本机健康检查成功不代表反代链路已连通。
-
-### Compose 镜像更新
-
-将仓库的 `backup.sh`、`restore.sh` 放到原部署目录。更新前先备份：
-
-```sh
-sh backup.sh
-docker compose up -d
-docker compose ps
-```
-
-`pull_policy: always` 在执行 `up` 时检查镜像，不在后台自动升级。`stable` 跟随稳定版本；锁定版本可使用 `ohbaby/ohimg:1.0.0`。完整配置修改 `OHIMG_IMAGE`，样本修改 `image` 字段。新版本要求调整配置时按版本说明处理；切回旧镜像前确认数据库兼容性。日志、停止和数据保留规则与上方源码方式相同。
-
-### Compose 镜像备份与恢复
-
-备份文件及保密要求与上方源码方式相同。备份和恢复脚本不会隐式拉取新版镜像。迁移时先停止旧站，再运行 `sh backup.sh backups/migration`，下载并保存三个备份文件。
-
-在新服务器准备与原部署对应的 Compose 文件和 `.env`，沿用原 `APP_SECRET`，使用与备份兼容的固定镜像版本。目标须使用空卷：
-
-```sh
-docker compose pull app
-sh restore.sh /备份目录
-docker compose up -d
-```
-
-先恢复、再启动，使用原账号登录，不初始化管理员。脚本拒绝非空卷；失败时先处理问题，不继续启动。
-
-### Docker 命令方式维护
-
-`docker logs --tail=100 ohimg` 查看日志，`docker stop ohimg` 和 `docker start ohimg` 临时停止或启动。拉取新镜像不会自动替换运行中的容器；更新前备份两个命名卷和 `.env`，再按原参数重建容器并复用原卷。仓库的备份恢复脚本仅用于 Compose 方式，不能直接用于 `docker run` 部署。
