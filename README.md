@@ -91,3 +91,43 @@ docker compose up -d
 ```
 
 使用原邮箱和密码登录，不初始化管理员。脚本拒绝非空卷；恢复失败时先处理问题，不继续启动。在同一服务器试恢复时，使用独立 Compose 项目名和端口，不改动原部署。
+
+## 镜像部署后的配置与维护
+
+镜像初次安装请看 [Docker Hub](https://hub.docker.com/r/ohbaby/ohimg)。Docker Hub 的 `docker-compose.yaml` 样本可直接用于部署；仓库内 `compose.hub.yml` 是带健康检查、日志轮转及可配置端口的完整配置。采用仓库文件时使用 `.env.hub.example` 并保留 `COMPOSE_FILE=compose.hub.yml`；采用样本时默认读取 `docker-compose.yaml`。已有部署继续保留原项目名、密钥和数据卷，不用示例覆盖原 `.env`。
+
+### 镜像方式反向代理
+
+同机 Nginx 转发到 `http://127.0.0.1:18080`；异机代理按上方反代说明调整绑定地址和入口限制。Docker 命令部署直接修改 `-p` 的绑定地址与端口。
+
+同机容器 NPM 另放入仓库的 `compose.npm.yml`，填写 `NPM_NETWORK`；使用完整配置时设置 `COMPOSE_FILE=compose.hub.yml:compose.npm.yml`，使用 Docker Hub 样本时设置 `COMPOSE_FILE=docker-compose.yaml:compose.npm.yml`。执行 `docker compose up -d`，NPM 转发到 `http://Ohimg-app:8080`。域名、证书、上传限制和 Cloudflare 设置同上。
+
+### Compose 镜像更新
+
+将仓库的 `backup.sh`、`restore.sh` 放到原部署目录。更新前先备份：
+
+```sh
+sh backup.sh
+docker compose up -d
+docker compose ps
+```
+
+`pull_policy: always` 在执行 `up` 时检查镜像，不在后台自动升级。`stable` 跟随稳定版本；锁定版本可使用 `ohbaby/ohimg:1.0.0`。完整配置修改 `OHIMG_IMAGE`，样本修改 `image` 字段。新版本要求调整配置时按版本说明处理；切回旧镜像前确认数据库兼容性。日志、停止和数据保留规则与上方源码方式相同。
+
+### Compose 镜像备份与恢复
+
+备份文件及保密要求与上方源码方式相同。备份和恢复脚本不会隐式拉取新版镜像。迁移时先停止旧站，再运行 `sh backup.sh backups/migration`，下载并保存三个备份文件。
+
+在新服务器准备与原部署对应的 Compose 文件和 `.env`，沿用原 `APP_SECRET`，使用与备份兼容的固定镜像版本。目标须使用空卷：
+
+```sh
+docker compose pull app
+sh restore.sh /备份目录
+docker compose up -d
+```
+
+先恢复、再启动，使用原账号登录，不初始化管理员。脚本拒绝非空卷；失败时先处理问题，不继续启动。
+
+### Docker 命令方式维护
+
+`docker logs --tail=100 ohimg` 查看日志，`docker stop ohimg` 和 `docker start ohimg` 临时停止或启动。拉取新镜像不会自动替换运行中的容器；更新前备份两个命名卷和 `.env`，再按原参数重建容器并复用原卷。仓库的备份恢复脚本仅用于 Compose 方式，不能直接用于 `docker run` 部署。
