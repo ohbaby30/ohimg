@@ -3,6 +3,7 @@ import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import limiter from '@fastify/rate-limit';
 import staticFiles from '@fastify/static';
+import {missingFilePage} from './missing-file.js';
 import {TelegramService} from './telegram.js';
 import nodemailer from 'nodemailer';
 import { fileTypeFromBuffer } from 'file-type';
@@ -91,9 +92,10 @@ export async function createApp(o:Options) {
   catch{try{await unlink(path);}catch{}return bad('图片保存失败，请检查服务器空间及目录权限',507);}
  });
  app.get('/i/:key',async(req,reply)=>{
-  const key=(req.params as {key:string}).key;if(!/^[a-f0-9]{64}\.(jpg|png|gif|webp|mp4)$/.test(key))return bad('文件不存在',404);
-  const row=db.prepare('SELECT mime FROM images WHERE key=? AND deleted_at IS NULL').get(key) as {mime:string}|undefined;if(!row)return bad('文件不存在',404);
-  const path=join(root,key);let size:number;try{size=(await stat(path)).size;}catch{return bad('文件不存在',404);}
+  const missing=()=>reply.code(404).header('Cache-Control','no-store').type('text/html; charset=utf-8').send(missingFilePage);
+  const key=(req.params as {key:string}).key;if(!/^[a-f0-9]{64}\.(jpg|png|gif|webp|mp4)$/.test(key))return missing();
+  const row=db.prepare('SELECT mime FROM images WHERE key=? AND deleted_at IS NULL').get(key) as {mime:string}|undefined;if(!row)return missing();
+  const path=join(root,key);let size:number;try{size=(await stat(path)).size;}catch{return missing();}
   reply.header('Cache-Control','public, max-age=0, must-revalidate').header('Accept-Ranges','bytes').type(row.mime);
   const range=req.headers.range;
   if(range){const m=/^bytes=(\d*)-(\d*)$/.exec(range);let start=0,end=size-1;
@@ -109,7 +111,7 @@ export async function createApp(o:Options) {
  app.get('/api/admin/cleanup',async(req)=>{user(req,true);return db.prepare('SELECT id,name,deleted_at FROM images WHERE deleted_at IS NOT NULL AND cleanup_error=1').all();});
  app.post('/api/admin/cleanup',async(req)=>{user(req,true);const rows=db.prepare('SELECT id,key FROM images WHERE deleted_at IS NOT NULL AND cleanup_error=1').all() as {id:number;key:string}[];let remaining=0;for(const row of rows)if(!await cleanup(row.id,row.key))remaining++;return {remaining};});
  const web=resolve(fileURLToPath(new URL('../web',import.meta.url)));if(existsSync(join(web,'index.html'))){await app.register(staticFiles,{root:web,prefix:'/',index:false});app.get('/',async(_req,reply)=>reply.sendFile('index.html'));}
- app.setNotFoundHandler((req,reply)=>{if(req.url.startsWith('/api/')||req.url.startsWith('/i/')||req.url.startsWith('/assets/')||req.method!=='GET')return reply.code(404).send({error:'页面或接口不存在'});if(existsSync(join(web,'index.html')))return reply.sendFile('index.html');return reply.code(404).send({error:'前端尚未构建'});});
+ app.setNotFoundHandler((req,reply)=>{if(req.url.startsWith('/i/')&&['GET','HEAD'].includes(req.method))return reply.code(404).header('Cache-Control','no-store').type('text/html; charset=utf-8').send(missingFilePage);if(req.url.startsWith('/api/')||req.url.startsWith('/i/')||req.url.startsWith('/assets/')||req.method!=='GET')return reply.code(404).send({error:'页面或接口不存在'});if(existsSync(join(web,'index.html')))return reply.sendFile('index.html');return reply.code(404).send({error:'前端尚未构建'});});
  app.setErrorHandler((error,req,reply)=>{const code=error instanceof Problem?error.statusCode:(error as {statusCode?:number}).statusCode??400;if(code>=500&&! (error instanceof Problem))app.log.error({code},'Request failed');return reply.code(code).send({error:error instanceof Problem?error.message:code===429?'操作过于频繁，请稍后重试':code===413?'图片超过大小限制':'请求内容不正确'});});
  const dummyHash=await hashPassword(token());app.addHook('onClose',async()=>{telegram.close();db.close();});await app.ready();if(o.telegramWorker)telegram.start();return {app,db,telegram};
 }
