@@ -38,52 +38,76 @@ chmod 600 .env
 
 ```yaml
 services:
-  app:
+  storage-init:
+    image: ohbaby/ohimg:stable
+    pull_policy: always
+    user: "0:0"
+    network_mode: none
+    restart: "no"
+    command: ["sh", "-c", "mkdir -p /data/db /data/images && chown -R 1000:1000 /data/db /data/images"]
+    volumes:
+      - ./data/db:/data/db
+      - ./data/images:/data/images
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+  ohimg:
     image: ohbaby/ohimg:stable
     pull_policy: always
     restart: unless-stopped
+    depends_on:
+      storage-init:
+        condition: service_completed_successfully
     env_file:
       - .env
     ports:
       - "18080:8080"
     volumes:
-      - database:/data/db
-      - images:/data/images
+      - ./data/db:/data/db
+      - ./data/images:/data/images
     init: true
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
-
-volumes:
-  database:
-  images:
 ```
 
-启动并创建管理员：
+数据保存在当前安装目录的 `data/`。Compose 自动准备权限，`storage-init` 显示 `Exited (0)` 表示准备完成。
+
+启动并创建管理员（已有数据恢复时跳过初始化）：
 
 ```sh
 docker compose up -d
-docker compose exec app node dist/server/cli.js init-admin
+docker compose exec ohimg node dist/server/cli.js init-admin
 ```
 
 ### Docker
 
-在包含 `.env` 的目录执行：
+在包含 `.env` 的安装目录执行。前一个临时容器只准备数据权限，不运行网站：
 
 ```sh
 docker pull ohbaby/ohimg:stable
+docker run --rm --user 0:0 --network none \
+  --security-opt no-new-privileges:true --cap-drop ALL \
+  --cap-add CHOWN --cap-add DAC_OVERRIDE \
+  -v "$PWD/data/db:/data/db" \
+  -v "$PWD/data/images:/data/images" \
+  ohbaby/ohimg:stable sh -c 'mkdir -p /data/db /data/images && chown -R 1000:1000 /data/db /data/images'
 docker run -d --name ohimg --restart unless-stopped --init \
   --security-opt no-new-privileges:true --cap-drop ALL \
   --env-file .env \
   -p 18080:8080 \
-  -v ohimg-run-db:/data/db \
-  -v ohimg-run-images:/data/images \
+  -v "$PWD/data/db:/data/db" \
+  -v "$PWD/data/images:/data/images" \
   ohbaby/ohimg:stable
 docker exec -it ohimg node dist/server/cli.js init-admin
 ```
 
-两种方式选择一种即可，按提示设置管理员邮箱和密码。
+两种方式选择一种即可，首次部署按提示设置管理员邮箱和密码；恢复已有数据时跳过初始化。
 
 ## 3．打开图床
 

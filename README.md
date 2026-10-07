@@ -22,10 +22,12 @@ openssl rand -hex 32
 
 ```sh
 docker compose up -d --build
-docker compose exec app node dist/server/cli.js init-admin
+docker compose exec ohimg node dist/server/cli.js init-admin
 ```
 
 按提示设置管理员邮箱和密码。已有部署或从备份恢复后不要再次初始化。
+
+数据库保存在安装目录的 `data/db/`，图片和视频保存在 `data/images/`。启动时 Compose 自动建立目录并将其中的数据权限交给应用用户（UID/GID 1000）；`storage-init` 完成后显示 `Exited (0)` 是正常状态，应用仍以普通用户运行。安装目录可自行选择，配置使用相对路径。
 
 ### 反向代理
 
@@ -39,24 +41,23 @@ docker compose exec app node dist/server/cli.js init-admin
 
 ### 源码更新与停止
 
-先备份，再更新源码并重建。保留原 `.env` 和数据卷：
+先按下方整目录备份步骤保存当前站点，再更新源码并重建。保留原 `.env` 和整个 `data/`，不要用新源码覆盖或删除它们：
 
 ```sh
-sh backup.sh
 # 更新源码后执行
 docker compose up -d --build
 docker compose ps
 ```
 
 ```sh
-docker compose logs --tail=100 app
-docker compose stop app
-docker compose start app
-# 结束容器和默认网络，保留命名数据卷
+docker compose logs --tail=100 ohimg
+docker compose stop ohimg
+docker compose start ohimg
+# 结束容器和默认网络，保留安装目录中的 data/
 docker compose down
 ```
 
-正常更新、停止不要使用 `down -v`。保留原 `APP_SECRET`、`COMPOSE_PROJECT_NAME`、域名和数据卷；备份包含密钥，勿公开。更新可能短暂中断服务。
+保留原 `APP_SECRET`、`COMPOSE_PROJECT_NAME` 和数据目录。更新可能短暂中断服务。
 
 ## Docker 镜像部署
 
@@ -72,24 +73,15 @@ Docker 或 Docker Compose 的镜像部署步骤与配置样本，请查看 [Dock
 - Telegram 支持图片和 MP4，单文件最多 20 MB（20,000,000 字节），这是当前 [Telegram Bot API 下载接口](https://core.telegram.org/bots/api#getfile)的限制。
 - 删除后原外链在源站失效；他人已下载或另行缓存的副本无法撤回。
 
-## 源码方式备份与恢复
+## 备份与恢复
 
-`sh backup.sh` 会短暂停止应用，生成一致的数据库、图片和配置备份，再恢复原运行状态。文件位于 `backups/日期时间/`：`database.sqlite`、`images.tar.gz`、`environment.env`。
+源码和镜像的 Compose 部署都把数据保存在安装目录里，可以直接复制整个目录备份和恢复。
 
-迁移时先停止旧站，再备份，避免备份后继续写入：
+1. 在安装目录执行 `docker compose stop ohimg`，等待命令成功，停止网页和 Bot 写入。
+2. 用 SSH 工具下载整个安装目录，包括隐藏的 `.env`、Compose 配置及完整 `data/`。复制全部完成前不要启动应用；备份完成后可在原服务器执行 `docker compose start ohimg`。
+3. 恢复时，将整个目录上传到新服务器的任意空目录，进入该目录。保留原 `APP_SECRET`，核对域名、端口和反代入口。
+4. 镜像部署执行 `docker compose up -d`；源码部署执行 `docker compose up -d --build`。沿用备份对应的版本，确认恢复正常后再升级。
 
-```sh
-docker compose stop app
-sh backup.sh backups/migration
-```
+使用原账号登录，不重新初始化管理员。权限由 Compose 自动准备，无需手动 `chmod 777`。备份含账号数据和密钥，不能公开。只复制源码、只复制 SQLite 主文件或漏掉 `.env` 都不是完整备份；跨服务器切换前保持旧站停止，避免两个 Bot 实例同时接收。
 
-将三个备份文件下载保存，再用 SSH 工具上传到新服务器的源码目录。目标必须使用空数据卷。在新目录中从备份配置准备 `.env`，保留原 `APP_SECRET`，核对域名、端口、网络和 Compose 文件选择，然后执行：
-
-```sh
-# 先构建与备份兼容的版本；恢复前不要启动应用
-docker compose build
-sh restore.sh /备份目录
-docker compose up -d
-```
-
-使用原邮箱和密码登录，不初始化管理员。脚本拒绝非空卷；恢复失败时先处理问题，不继续启动。在同一服务器试恢复时，使用独立 Compose 项目名和端口，不改动原部署。
+Docker 命令部署同样使用安装目录的 `data/`：备份前执行 `docker stop ohimg`，恢复后按 [Docker Hub](https://hub.docker.com/r/ohbaby/ohimg) 的 Docker 部署命令准备权限并启动，跳过管理员初始化。备份目录需保留原镜像版本和启动参数。

@@ -1,7 +1,27 @@
 services:
-  app:
+  storage-init:
     image: ${OHIMG_IMAGE:?Set OHIMG_IMAGE to your Docker Hub image}
     pull_policy: always
+    user: "0:0"
+    network_mode: none
+    restart: "no"
+    command: ["sh", "-c", "mkdir -p /data/db /data/images && chown -R 1000:1000 /data/db /data/images"]
+    volumes:
+      - ./data/db:/data/db
+      - ./data/images:/data/images
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+  ohimg:
+    image: ${OHIMG_IMAGE:?Set OHIMG_IMAGE to your Docker Hub image}
+    pull_policy: always
+    depends_on:
+      storage-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     environment:
       APP_URL: ${APP_URL:?Set APP_URL in .env}
@@ -13,8 +33,8 @@ services:
     ports:
       - "${BIND_IP:-127.0.0.1}:${HOST_PORT:-18080}:8080"
     volumes:
-      - database:/data/db
-      - images:/data/images
+      - ./data/db:/data/db
+      - ./data/images:/data/images
     init: true
     security_opt:
       - no-new-privileges:true
@@ -31,6 +51,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-volumes:
-  database:
-  images:
