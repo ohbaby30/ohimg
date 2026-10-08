@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { openStore, email, hashPassword, compatibleDatabasePath } from './store.js';
+import { openStore, changeAdminEmail, email, hashPassword, compatibleDatabasePath } from './store.js';
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { resolve } from 'node:path';
@@ -11,6 +11,7 @@ async function password(){if(!stdin.isTTY){let text='';for await(const chunk of 
 try {
  if(command==='init-admin') {let input=args[0];if(!input){if(!stdin.isTTY)throw new Error('请提供管理员邮箱');const rl=createInterface({input:stdin,output:stdout});input=await new Promise<string>(r=>rl.question('管理员邮箱: ',r));rl.close();}const e=email(input);const existing=db.prepare("SELECT email FROM users WHERE role='admin'").get() as {email:string}|undefined;if(existing){if(existing.email!==e)throw new Error('管理员已经存在，不能再次初始化其他管理员');console.log('管理员已存在，密码保持不变');}else{const h=await hashPassword(await password());db.prepare("INSERT INTO users(email,password,role,created_at) VALUES(?,?,'admin',?)").run(e,h,Date.now());console.log('管理员已创建：'+e);}}
  else if(command==='reset-password'){const e=email(args[0]);if(!db.prepare('SELECT id FROM users WHERE email=?').get(e))throw new Error('账号不存在');const h=await hashPassword(await password());db.transaction(()=>{db.prepare('UPDATE users SET password=? WHERE email=?').run(h,e);db.prepare('DELETE FROM sessions WHERE user_id=(SELECT id FROM users WHERE email=?)').run(e);db.prepare('DELETE FROM resets WHERE user_id=(SELECT id FROM users WHERE email=?)').run(e);})();console.log('密码已重置，旧会话已撤销');}
+ else if(command==='change-admin-email'){const updated=changeAdminEmail(db,args[0],args[1]);console.log('管理员邮箱已修改：'+updated+'，请用新邮箱和原密码登录，旧会话已撤销');}
  else if(command==='backup'){if(!args[0])throw new Error('请提供全新的备份文件路径');if(existsSync(resolve(args[0])))throw new Error('备份文件已存在，拒绝覆盖');await db.backup(resolve(args[0]));console.log('数据库备份完成');}
- else throw new Error('用法：init-admin [email] | reset-password email | backup path');
+ else throw new Error('用法：init-admin [email] | reset-password email | change-admin-email old-email new-email | backup path');
 } catch(e){console.error((e as Error).message);process.exitCode=1;} finally {db.close();}

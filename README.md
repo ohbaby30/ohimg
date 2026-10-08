@@ -63,6 +63,18 @@ Docker 或 Docker Compose 的镜像部署步骤与配置样本，请查看 [Dock
 - Telegram 支持图片和 MP4，单文件最多 20 MB（20,000,000 字节），这是当前 [Telegram Bot API 下载接口](https://core.telegram.org/bots/api#getfile)的限制。
 - 删除后原外链在源站失效；他人已下载或另行缓存的副本无法撤回。
 
+### 修改管理员邮箱
+
+管理员登录后，在“账号设置”填写新邮箱和当前密码。修改后使用新邮箱和原密码重新登录；图片、外链和管理员权限保持不变，其他设备上的登录会话也会退出。
+
+也可先备份，再在安装目录通过命令修改：
+
+```sh
+docker compose exec ohimg node dist/server/cli.js change-admin-email 'old@example.com' 'new@example.com'
+```
+
+将示例邮箱替换为旧邮箱、新邮箱。新邮箱不能与现有账号重复。
+
 ## 备份与恢复
 
 源码和镜像的 Compose 部署都把数据保存在安装目录里，可以直接复制整个目录备份和恢复。

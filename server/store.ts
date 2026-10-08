@@ -33,3 +33,19 @@ export function cryptoBox(secret:string) {
  if(secret.length<32) throw new Error('APP_SECRET 至少需要 32 个字符'); const key=createHash('sha256').update(secret).digest();
  return {seal(value:unknown){const iv=randomBytes(12),c=createCipheriv('aes-256-gcm',key,iv);const b=Buffer.concat([c.update(JSON.stringify(value)),c.final()]);return Buffer.concat([iv,c.getAuthTag(),b]).toString('base64');},open(value:string){const b=Buffer.from(value,'base64'),d=createDecipheriv('aes-256-gcm',key,b.subarray(0,12));d.setAuthTag(b.subarray(12,28));return JSON.parse(Buffer.concat([d.update(b.subarray(28)),d.final()]).toString());}};
 }
+
+export function changeAdminEmail(db:Database.Database,oldValue:unknown,newValue:unknown,expectedPassword?:string) {
+ const oldEmail=email(oldValue),newEmail=email(newValue);
+ if(oldEmail===newEmail)throw new Error('新邮箱与当前邮箱相同');
+ return db.transaction(()=>{
+  const u=db.prepare("SELECT * FROM users WHERE email=? AND role='admin' AND active=1").get(oldEmail) as User|undefined;
+  if(!u)throw new Error('管理员账号不存在或已停用');
+  if(expectedPassword!==undefined&&u.password!==expectedPassword)throw new Error('账号状态已变化，请重新登录');
+  if(db.prepare('SELECT id FROM users WHERE email=?').get(newEmail))throw new Error('新邮箱已被占用');
+  db.prepare('UPDATE users SET email=? WHERE id=?').run(newEmail,u.id);
+  db.prepare('DELETE FROM sessions WHERE user_id=?').run(u.id);
+  db.prepare('DELETE FROM resets WHERE user_id=?').run(u.id);
+  db.prepare("UPDATE invites SET status='revoked' WHERE email=? AND status IN ('pending','sent','failed')").run(newEmail);
+  return newEmail;
+ })();
+}

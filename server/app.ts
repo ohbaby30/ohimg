@@ -11,7 +11,7 @@ import { mkdirSync, createReadStream, existsSync } from 'node:fs';
 import { writeFile, unlink, stat } from 'node:fs/promises';
 import { resolve, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { openStore, cryptoBox, digest, token, email, matches, hashPassword, type User } from './store.js';
+import { openStore, changeAdminEmail, cryptoBox, digest, token, email, matches, hashPassword, type User } from './store.js';
 export type Options = { dbPath:string; imageDir:string; appURL:string; secret:string; logger?:boolean; maxBytes?:number; trustProxy?:string[]; telegramWorker?:boolean; telegramTransport?:ConstructorParameters<typeof TelegramService>[4]; sendMail?:(settings:SMTP,to:string,subject:string,text:string)=>Promise<void> };
 type SMTP = {host:string;port:number;mode:'starttls'|'tls';username:string;password:string;from:string};
 class Problem extends Error { constructor(public statusCode:number,message:string){super(message);} }
@@ -62,6 +62,11 @@ export async function createApp(o:Options) {
  });
  app.post('/api/logout',async(req,reply)=>{if(req.cookies.session)db.prepare('DELETE FROM sessions WHERE hash=?').run(digest(req.cookies.session));reply.clearCookie('session',{path:'/'});return {ok:true};});
  app.post('/api/password', {config:authLimit},async(req,reply)=>{const u=user(req),b=body(req);if(!await matches(b.currentPassword,u.password))return bad('原密码不正确');const h=await hashPassword(b.password);db.transaction(()=>{db.prepare('UPDATE users SET password=? WHERE id=?').run(h,u.id);db.prepare('DELETE FROM sessions WHERE user_id=?').run(u.id);})();reply.clearCookie('session',{path:'/'});return {ok:true};});
+ app.post('/api/admin/email',{config:authLimit},async(req,reply)=>{
+  const u=user(req,true),b=body(req);if(!await matches(b.currentPassword,u.password))return bad('当前密码不正确');
+  let newEmail:string;try{newEmail=changeAdminEmail(db,u.email,b.email,u.password);}catch(e){return bad((e as Error).message);}
+  reply.clearCookie('session',{path:'/'});return {ok:true,email:newEmail};
+ });
  app.post('/api/forgot',{config:{rateLimit:{max:3,timeWindow:60_000}}},async(req)=>{const e=email(body(req).email),u=db.prepare('SELECT * FROM users WHERE email=? AND active=1').get(e) as User|undefined;
   const cfg=smtp();void cfg; // Fail explicitly if email is unavailable, without revealing account existence.
   if(u){const raw=token();db.transaction(()=>{db.prepare('DELETE FROM resets WHERE user_id=?').run(u.id);db.prepare('INSERT INTO resets VALUES(?,?,?)').run(digest(raw),u.id,Date.now()+3600_000);})();try{await mail(e,'Ohimg · 重置密码',`请在 1 小时内打开链接重置密码：\n${publicURL.origin}/reset#token=${raw}\n\n如非本人操作，请忽略。`);}catch{db.prepare('DELETE FROM resets WHERE hash=?').run(digest(raw));app.log.warn('Password reset SMTP failed');}}
