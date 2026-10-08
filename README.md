@@ -8,7 +8,7 @@ Vue 3 · TypeScript · Fastify · SQLite · Node.js 24 · Docker Compose。
 
 ## 源码安装
 
-服务器需安装 Git、Docker 和 Docker Compose，并准备域名及 HTTPS 反向代理。下载源码：
+服务器需安装 Git、Docker 和 Docker Compose。下载源码：
 
 ```sh
 git clone https://github.com/ohbaby30/ohimg.git Ohimg
@@ -18,7 +18,7 @@ chmod 600 .env
 openssl rand -hex 32
 ```
 
-编辑 `.env`：`APP_URL` 填正式 HTTPS 地址，`APP_SECRET` 填刚生成的随机值。然后从源码构建并启动：
+编辑 `.env`：`APP_URL` 填浏览器实际访问地址，例如 `https://img.example.com` 或 `http://服务器IP:18080`；`APP_SECRET` 填刚生成的随机值。然后从源码构建并启动：
 
 ```sh
 docker compose up -d --build
@@ -28,16 +28,6 @@ docker compose exec ohimg node dist/server/cli.js init-admin
 按提示设置管理员邮箱和密码。已有部署或从备份恢复后不要再次初始化。
 
 数据库保存在安装目录的 `data/db/`，图片和视频保存在 `data/images/`。启动时镜像自动准备数据目录，只运行一个图床容器。启动完成后，`docker compose ps` 显示 `Up` 和 `healthy`。安装目录可自行选择，配置使用相对路径。
-
-### 反向代理
-
-- 同机 Nginx：转发到 `http://127.0.0.1:18080`。
-- 同机容器 NPM：`.env` 设置 `COMPOSE_FILE=compose.yml:compose.npm.yml` 和 `NPM_NETWORK=实际网络名`，再执行启动命令；转发到 `http://Ohimg-app:8080`。
-- 异机 NPM：`BIND_IP` 填图床服务器的内网/VPN IP，转发到 `http://图床服务器IP:18080`。如必须走公网，先将入口限制为 NPM 出口 IP。
-
-以上 `BIND_IP`、`HOST_PORT` 用于仓库的 Compose 配置；Docker Hub 样本直接修改 `ports`，Docker 命令部署修改 `-p`。异机反代可使用 `18080:8080`，并先在云防火墙/安全组中限制 TCP 18080 仅允许 NPM 的实际出口 IP；同机宿主机代理使用 `127.0.0.1:18080:8080`。同机容器 NPM 使用 Hub 样本时，设置 `COMPOSE_FILE=docker-compose.yaml:compose.npm.yml` 并配置上述 `NPM_NETWORK`；共享网络转发到 `Ohimg-app:8080`。
-
-`HOST_PORT` 默认 18080。`APP_URL` 填浏览器最终访问地址，例如 `https://img.example.com`，不改变端口监听或给容器启用 HTTPS。域名 DNS 指向反代服务器，在反代配置有效 HTTPS 证书；NPM 上游协议选择 `http`。Nginx/NPM 设置 `client_max_body_size 25m;`；开启 Cloudflare 橙云时，反代证书有效后使用 Full (strict)。
 
 ### 源码更新与停止
 
