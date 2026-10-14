@@ -23,7 +23,7 @@ async function changePassword(){busy.value=true;try{if(credentials.password!==cr
 const emailChange=reactive({email:'',currentPassword:''});
 async function changeEmail(){if(busy.value)return;busy.value=true;try{const r=await send('/admin/email',emailChange);credentials.email=r.email;emailChange.email='';emailChange.currentPassword='';me.value=null;toast('邮箱已修改，请用新邮箱和原密码登录');await router.replace('/login');}catch(e){toast((e as Error).message,true);}finally{busy.value=false;}}
 const photos=ref<Photo[]>([]),total=ref(0),page=ref(1),search=ref(''),pageError=ref(''),users=ref<any[]>([]),invites=ref<any[]>([]),cleanup=ref<any[]>([]);
-const telegramLoaded=ref(false),telegram=reactive({enabled:false,token:'',adminTelegramId:'',hasToken:false,status:'未启用'});
+const telegramLoaded=ref(false),telegram=reactive({enabled:false,token:'',adminTelegramId:'',hasAdminTelegramId:false,hasToken:false,status:'未启用'});
 const smtpLoaded=ref(false);
 const smtp=reactive({host:'',port:587,mode:'starttls',username:'',password:'',from:'',hasPassword:false});
 const formatBytes=(n:number)=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
@@ -31,7 +31,7 @@ const date=(n:number)=>new Date(n).toLocaleString('zh-CN',{year:'numeric',month:
 let loadVersion=0;
 async function load(){const version=++loadVersion;if(!me.value)return;loading.value=true;pageError.value='';try{const p=path.value;
 if(p==='/images'||p==='/admin/images'){const r=await api(`/images?page=${page.value}&search=${encodeURIComponent(search.value)}${p==='/admin/images'?'&all=1':''}`);if(version!==loadVersion)return;photos.value=r.items;total.value=r.total;if(p==='/admin/images')cleanup.value=await api('/admin/cleanup');}
-if(p==='/admin/telegram'){telegramLoaded.value=false;const r=await api('/admin/telegram');if(version===loadVersion){Object.assign(telegram,r,{token:''});telegramLoaded.value=true;}}
+if(p==='/admin/telegram'){telegramLoaded.value=false;const r=await api('/admin/telegram');if(version===loadVersion){Object.assign(telegram,r,{token:'',adminTelegramId:''});telegramLoaded.value=true;}}
 if(p==='/admin/users'){const r=await api('/admin/users');if(version===loadVersion)users.value=r;}
 if(p==='/admin/invites'){const r=await api('/admin/invites');if(version===loadVersion)invites.value=r;}
 if(p==='/admin/mail'){smtpLoaded.value=false;const r=await api('/admin/smtp');if(version===loadVersion){Object.assign(smtp,{host:'',port:587,mode:'starttls',username:'',password:'',from:'',hasPassword:false},r);smtp.password='';smtpLoaded.value=true;}}
@@ -130,8 +130,8 @@ onUnmounted(()=>{document.removeEventListener('paste',paste);document.removeEven
     <p v-if="loading" class="muted">正在载入配置…</p>
     <form v-if="telegramLoaded&&!loading" class="form" @submit.prevent="saveTelegram">
      <label>Bot Token<input v-model="telegram.token" type="password" autocomplete="new-password" :placeholder="telegram.hasToken?'已保存，留空保持不变':'填写 BotFather 提供的 Token'"></label>
-     <label>管理员 Telegram ID<input v-model="telegram.adminTelegramId" inputmode="numeric" placeholder="你的 Telegram 数字用户 ID，不是用户名"></label>
-     <p class="muted">不知道 ID：先填写 Token 并开启接收，向 Bot 私聊发送 /id，再将返回的数字填入这里保存。ID 留空时不接收文件。</p>
+     <label>管理员 Telegram ID<input v-model="telegram.adminTelegramId" inputmode="numeric" autocomplete="off" :placeholder="telegram.hasAdminTelegramId?'已配置，留空保持不变':'你的 Telegram 数字用户 ID，不是用户名'"></label>
+     <p class="muted">不知道 ID：先填写 Token 并开启接收，向 Bot 私聊发送 /id，再将返回的数字填入这里保存。已配置的 ID 不显示，留空保持不变；首次未配置 ID 时不接收文件。</p>
      <label>接收上传<select v-model="telegram.enabled" aria-label="接收上传"><option :value="false">关闭</option><option :value="true">开启</option></select></label>
      <p class="muted">状态：{{ telegram.status }}<br>保存后点击刷新查看连接状态。以“文件”发送图片可保留原文件；以“照片”发送时保存的是 Telegram 处理后的图片。</p>
      <div class="form-buttons"><button class="primary" :disabled="busy">保存 Telegram 配置</button><button type="button" :disabled="busy" @click="refresh">刷新状态</button></div>

@@ -25,9 +25,9 @@ export class TelegramService{
   db.exec('CREATE TABLE IF NOT EXISTS telegram_receipts(bot TEXT NOT NULL,update_id INTEGER NOT NULL,image_id INTEGER NOT NULL REFERENCES images(id),PRIMARY KEY(bot,update_id));');
  }
  config():TelegramConfig|undefined{const row=this.db.prepare("SELECT value FROM settings WHERE key='telegram'").get() as {value:string}|undefined;return row?this.box.open(row.value):undefined;}
- publicConfig(){const c=this.config();return {enabled:c?.enabled??false,adminTelegramId:c?.adminTelegramId??'',hasToken:!!c?.token,status:this.status,lastProcessedAt:this.lastProcessedAt};}
+ publicConfig(){const c=this.config();return {enabled:c?.enabled??false,hasAdminTelegramId:!!c?.adminTelegramId,hasToken:!!c?.token,status:this.status,lastProcessedAt:this.lastProcessedAt};}
  configure(input:Record<string,unknown>,ownerId:number){
-  const prev=this.config(),t=typeof input.token==='string'&&input.token.trim()?input.token.trim():prev?.token??'',id=String(input.adminTelegramId??'').trim();
+  const prev=this.config(),t=typeof input.token==='string'&&input.token.trim()?input.token.trim():prev?.token??'',id=String(input.adminTelegramId??'').trim()||prev?.adminTelegramId||'';
   if(typeof input.enabled!=='boolean')throw new Error('启用状态不正确');
   if(input.enabled&&(!/^\d{5,}:[A-Za-z0-9_-]{20,}$/.test(t)||(id!==''&&(!/^\d{1,16}$/.test(id)||!Number.isSafeInteger(Number(id))||Number(id)<1))))throw new Error('请输入有效 Bot Token 和管理员 Telegram 数字 ID');
   if(t.length>256||id.length>16)throw new Error('Telegram 配置过长');
